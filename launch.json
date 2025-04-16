@@ -1,0 +1,36 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+        "name": "Pico Remote Debug",
+        "preLaunchTask": "Compile",
+        "type": "cortex-debug",//"cppdbg"
+        "request": "launch",
+        "executable": "/home/dev/rp2040/PCB-Fr-smaschine/build/CNC.elf",
+        "gdbTarget": "192.168.0.208:3333", //ocd-debugger.local:3333", //"Indexnull.de:3333", // "192.168.0.72",
+        "servertype": "external",
+        "gdbPath": "/usr/bin/gdb-multiarch",
+        "cwd": "${workspaceFolder}",
+        "svdFile": "${env:PICO_SDK_PATH}/src/rp2040/hardware_regs/rp2040.svd",
+        "runToEntryPoint": "main",
+        "postRestartCommands": [
+            "break main",
+            "continue"
+        ]
+
+      },
+      {
+        "name": "Pico Remote flash",
+        "preLaunchTask": "Compile",
+        "type": "cortex-debug",//"cppdbg"
+        "request": "launch",
+        "executable": "/home/dev/rp2040/PCB-Fr-smaschine/build/CNC.elf",
+        "gdbTarget": "indexnull.de:3333", // ocd-debugger.local:3333",
+        "servertype": "external",
+        "gdbPath": "/usr/bin/gdb-multiarch",
+        "cwd": "${workspaceFolder}",
+        "svdFile": "${env:PICO_SDK_PATH}/src/rp2040/hardware_regs/rp2040.svd",
+
+      }
+  ]
+}

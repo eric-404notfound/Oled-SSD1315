@@ -7,7 +7,7 @@ set(PICO_SDK_PATH "/home/dev/rp2040/pico-sdk")
 
 include(${PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 
-project(CNC C CXX ASM)
+project(oled C CXX ASM)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
@@ -23,50 +23,13 @@ add_executable(CNC
         ${SOURCES}
 )
 
-target_include_directories(CNC PUBLIC
-  ${CMAKE_SOURCE_DIR}/source/CNC
-  ${CMAKE_SOURCE_DIR}/source/LCD
-  ${CMAKE_SOURCE_DIR}/source/SD_Karte
-)
-
-pico_enable_stdio_uart(CNC ON)
-pico_enable_stdio_usb(CNC OFF)
-
-pico_generate_pio_header(CNC ${CMAKE_CURRENT_LIST_DIR}/pio/pio_stepper.pio)
+pico_enable_stdio_uart(oled ON)
 
 # pull in common dependencies
-target_link_libraries(CNC
+target_link_libraries(oled
 
         pico_stdlib
-        hardware_pio
-        hardware_dma
         hardware_i2c
-        hardware_spi
-        FatFs_SPI
-
 )
 
-pico_add_extra_outputs(CNC)
-
-
-
-
-add_custom_target(upload 
-        COMMAND python3 /home/Dev/Python/Flash_tool.py upload ${PROJECT_NAME}.elf
-        DEPENDS CNC
-)
-
-add_custom_target(flash
-        COMMAND python3 /home/Dev/Python/Flash_tool.py flash ${PROJECT_NAME}.elf RP2040
-        DEPENDS CNC upload
-)
-
-add_custom_target(console
-        COMMAND python3 /home/Dev/Python/Flash_tool.py console 115200
-)
-
-
-add_custom_target(flash_console
-        COMMAND ${CMAKE_COMMAND} --build . --target flash
-        COMMAND ${CMAKE_COMMAND} --build . --target console
-)
+pico_add_extra_outputs(oled)
