@@ -5,31 +5,32 @@ set(PICOTOOL_FETCH_FROM_GIT_PATH "/home/dev/picotool/bin")
 
 set(PICO_SDK_PATH "/home/dev/rp2040/pico-sdk")
 
+set(PICO_BOARD pico)
+
 include(${PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 
-project(oled C CXX ASM)
+project(main C CXX ASM)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
 
 pico_sdk_init()
 file(GLOB_RECURSE SOURCES "source/*.cpp")
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/external)
 
-
-add_subdirectory(libs/no-OS-FatFS-SD-SPI-RPi-Pico/FatFs_SPI)
-
-add_executable(CNC
-        main.cpp
+add_executable(main
+        source/main.cpp
         ${SOURCES}
 )
+pico_enable_stdio_usb(main ON)
+pico_enable_stdio_uart(main OFF)
 
-pico_enable_stdio_uart(oled ON)
 
 # pull in common dependencies
-target_link_libraries(oled
+target_link_libraries(main
 
         pico_stdlib
         hardware_i2c
 )
 
-pico_add_extra_outputs(oled)
+pico_add_extra_outputs(main)
