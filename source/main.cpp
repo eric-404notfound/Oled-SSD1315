@@ -3,7 +3,12 @@
 #include "pico/stdlib.h"
 #include "pico/time.h"
 #include "hardware/i2c.h"
+#include "hardware/rtc.h"
+#include "pico/util/datetime.h"
+#include "hardware/gpio.h"
+
 #include <string.h>
+#include <math.h>
 
 #include "font/font.h"
 
@@ -12,9 +17,12 @@
 
 #define OLED_ADDR 0x3C
 
-class Display_Text;
-class Display_Segment;
-class Oled_Display;
+static volatile bool fired = false;
+
+struct Vec2{
+    size_t x;
+    size_t y;
+};
 
 
 bitmap get_ascii(char symbol){
@@ -72,7 +80,6 @@ public:
     }
     void set_pixels(size_t x, size_t y, const bitmap* bmap){
         if (x >= pwidth || y >= pheight) return;
-        if (bmap->width + x > pwidth || bmap->height + y > pheight) return;
         for (size_t i = 0; i < bmap->width; i++){
             for (size_t j = 0; j < bmap->height; j++){
                 if ((1 << (j % 8)) & *(bmap->bitmap + i + (j/8) * bmap->width)){
@@ -81,6 +88,85 @@ public:
                     clear_pixel(x + i, y + j);
                 }
             }
+        }
+    }
+};
+
+class Display_Line{
+private:
+    Display_Buffer* display;
+    Vec2 p1, p2;
+
+public:
+    Display_Line(Display_Buffer* _display, Vec2 _p1, Vec2 _p2):display(_display), p1(_p1), p2(_p2) {this->draw();}
+
+    ~Display_Line(){}
+
+    void draw(void){
+        int dx = p2.x - p1.x;
+        int dy = p2.y - p1.y;
+        int steps = abs(dx) > abs(dy) ? abs(dx) : abs(dy);
+        float x_inc = (float)dx / (float)steps;
+        float y_inc = (float)dy / (float)steps;
+
+        float x = p1.x;
+        float y = p1.y;
+
+        for (int i = 0; i <= steps; i++){
+            display->set_pixel((int)x, (int)y);
+            x += x_inc;
+            y += y_inc;
+        }
+    }
+};
+
+class Display_Box{
+    private:
+        Display_Line lines[4];
+
+    
+    public:
+    Display_Box(Display_Buffer* _display, Vec2 p1, Vec2 p2): lines{Display_Line(_display, p1, {p2.x, p1.y}) ,
+                                                                    Display_Line(_display, {p2.x, p1.y}, p2),
+                                                                    Display_Line(_display, p2, {p1.x, p2.y}),
+                                                                    Display_Line(_display, {p1.x, p2.y}, p1)} {}
+    
+};
+
+class Display_Circle{
+private:
+    Display_Buffer* display;
+    Vec2 center;
+    size_t radius;
+public:
+    Display_Circle(Display_Buffer* _display, Vec2 _center, size_t _radius): display(_display), center(_center), radius(_radius) {
+        this->draw();
+    }
+
+    ~Display_Circle(){}
+
+    void draw(void){
+        int x = 0;
+        int y = radius;
+        int d = 3 - 2 * radius;
+
+        while (x <= y){
+            display->set_pixel(center.x + x, center.y + y);
+            display->set_pixel(center.x - x, center.y + y);
+            display->set_pixel(center.x + x, center.y - y);
+            display->set_pixel(center.x - x, center.y - y);
+            display->set_pixel(center.x + y, center.y + x);
+            display->set_pixel(center.x - y, center.y + x);
+            display->set_pixel(center.x + y, center.y - x);
+            display->set_pixel(center.x - y, center.y - x);
+
+            if (d < 0){
+                d += 4 * x + 6;
+            } else {
+                d += 4 * (x - y) + 10;
+                y--;
+            }
+            x++;
         }
     }
 };
@@ -98,18 +184,17 @@ public:
     
     ~Display_Text(){}
 
-    Display_Text& operator<<(const char* text){
-        this->text = (char*)text;
+    Display_Text& operator<<(const char* _text){
+        this->text = (char*)_text;
+        this->draw();
+        return *this;
+    }
+
+    void draw(void){
         for (size_t i = 0; i < strlen(text); i++){
-            if (i * ascii_font_width + offsetx >= display->get_with()) {
-                display->set_pixels(offsetx + (i-1) * special_symbols::PPP.width, offsety, &special_symbols::PPP);
-                break;
-            }
             bitmap bmap = get_ascii(text[i]);
             display->set_pixels(offsetx + i * bmap.width, offsety, &bmap);
-
         }
-        return *this;
     }
 
     char* get_text(void){
@@ -162,14 +247,12 @@ private:
         cmd(0xAF);       // Display ON
     }
 
-public:
-
-
-public:
     void cmd(uint8_t command){
         uint8_t data[2] = {0x00, command};
         i2c_write_blocking(i2c1, OLED_ADDR, data, 2, false);
     }
+public:
+
 
     void update(void) {
         // Setze Adressbereich (für horizontales Schreiben)
@@ -190,14 +273,23 @@ public:
         update();
     }
 
-    Display_Text create_row(size_t y) {
-        return Display_Text(&display, 0 , y); // Zugriff zum Lesen & Schreiben
-    }
-
     Display_Text create_text(size_t x, size_t y) {
         return Display_Text(&display, x , y); // Zugriff zum Lesen & Schreiben
     }
-
+    Display_Line create_line(size_t x1, size_t y1, size_t x2, size_t y2) {
+        Vec2 p1 = {x1, y1};
+        Vec2 p2 = {x2, y2};
+        return Display_Line(&display, p1, p2);
+    }
+    Display_Box create_box(size_t x1, size_t y1, size_t x2, size_t y2) {
+        Vec2 p1 = {x1, y1};
+        Vec2 p2 = {x2, y2};
+        return Display_Box(&display, p1, p2);
+    }
+    Display_Circle create_circle(size_t x, size_t y, size_t r) {
+        Vec2 p1 = {x, y};
+        return Display_Circle(&display, p1, r);
+    }
 
     Oled_Display(size_t hight, size_t width): hight(hight/8), width(width), display(width, hight) {
         init();
@@ -209,11 +301,28 @@ public:
 
 };
 
-static uint8_t oled_buffer[1024];
+
+Oled_Display* static_oled;
+Display_Text* static_time;
+
+static void alarm_callback(void) {
+    datetime_t t = {0};
+    rtc_get_datetime(&t);
+    char buffer[6];
+    snprintf(buffer, sizeof(buffer), "%02d:%02d", t.hour, t.min);
+    fired = true;
+    *static_time << buffer;
+    static_oled->update();
+}
 
 int main(){
 
     stdio_init_all();
+    rtc_init();
+
+    gpio_init(PICO_DEFAULT_LED_PIN);
+    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
+    gpio_put(PICO_DEFAULT_LED_PIN, 1);
 
     printf("\n\n\n\nHallo welt\n\n\n\n");
 
@@ -222,21 +331,56 @@ int main(){
     gpio_set_function(I2C_SCL_OLED, GPIO_FUNC_I2C);
     gpio_pull_up(I2C_SDA_OLED);
     gpio_pull_up(I2C_SCL_OLED);
+    Oled_Display oled(64, 128);
+    static_oled = &oled;
 
-    Oled_Display oled = Oled_Display(64, 128);
+    Display_Text Text1 = oled.create_text(1, 1);
+    Display_Text Text2 = oled.create_text(5, 16);
+    Display_Box Header = oled.create_box(0, 0, 127, 14);
 
-    Display_Text Text1 = oled.create_row(0);
-    Display_Text Text2 = oled.create_text(12, 48);
+    Text1 << "Pico OLED";
+    Text2 << "Dieser_Text_ist@@@";
+    Display_Box Zeit_Fenster = oled.create_box(86, 0, 127, 14);
+    Display_Text zeit = oled.create_text(87, 1);
+    Display_Circle circle2 = oled.create_circle(64, 25, 7);
 
-    Text1 << "Hallo du kleiner schlawiner";
-    Text2 << "World!!!!!!!!!!!!!!";
+    static_time = &zeit;
     oled.update();
 
+
+
+    sleep_ms(1000);
+    datetime_t t = {
+        .year  = 2025,
+        .month = 04,
+        .day   = 20,
+        .dotw  = 6, // 0 is Sunday, so 3 is Wednesday
+        .hour  = 0,
+        .min   = 19,
+        .sec   = 00
+    };
+    
+    rtc_set_datetime(&t);
+    datetime_t alarm_t = {
+        .year  = -1,
+        .month = -1,
+        .day   = -1,
+        .dotw  = -1,
+        .hour  = -1,
+        .min   = -1,
+        .sec   = 00
+    }; 
+    alarm_callback();
+    rtc_set_alarm(&alarm_t, alarm_callback);
+    
+    
+
     uint i = 0;
-    printf("\n");
-    while (true){
+    while(true){
         sleep_ms(1000);
-        printf("\r%d", ++i);
+        gpio_put(PICO_DEFAULT_LED_PIN, 0);
+        sleep_ms(1000);
+        gpio_put(PICO_DEFAULT_LED_PIN, 1);
     }
     return 0;
     

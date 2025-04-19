@@ -31,6 +31,8 @@ target_link_libraries(main
 
         pico_stdlib
         hardware_i2c
+        hardware_rtc
+        hardware_gpio
 )
 
 pico_add_extra_outputs(main)
