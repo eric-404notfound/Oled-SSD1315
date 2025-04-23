@@ -1,3 +1,3 @@
 # Oled-SSD1315
 
-zurzeit in der Testphase
+Eine Implementierung für den SSD1315 für den RP Pico
