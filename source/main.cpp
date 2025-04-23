@@ -17,25 +17,10 @@
 
 #define OLED_ADDR 0x3C
 
-static volatile bool fired = false;
-
 struct Vec2{
     size_t x;
     size_t y;
 };
-
-
-bitmap get_ascii(char symbol){
-    uint8_t width = ascii_font_width;
-    uint8_t height = ascii_font_hight;
-    size_t bitmap_offset = symbol - 32;
-    uint8_t* bmap = new uint8_t[width * (height/8 + (height % 8 ? 1 : 0))];
-    //uint8_t bmap2[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xfe, 0xfe, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0d, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    for (size_t i = 0; i < (height/8 + (height % 8 ? 1 : 0)); i++)
-        memcpy(bmap + i * width, ascii_bmap + (bitmap_offset * ascii_font_width) +  i * ascii_font_width * ascii_font_char_count , width);
-        //memcpy(bmap, bmap2, 32);
-    return {width, height, bmap};
-}
 
 class Display_Buffer{
 private:
@@ -78,10 +63,79 @@ public:
         if (x >= pwidth || y >= pheight) return;
         buffer[x + (y/8) * pwidth] &= ~(1 << (y % 8));
     }
-    void set_pixels(size_t x, size_t y, const bitmap* bmap){
+    void clear(void){
+        memset(buffer, 0, pwidth * pheight/8);
+    }
+    void set_pixels(size_t x, size_t y, size_t width, size_t height){
+        if (x >= pwidth || y >= pheight) return;
+        
+        for (size_t i = 0; i < width; i++) {
+            if (x + i >= pwidth) break;
+        
+            size_t j = 0;
+            while (j < height) {
+                size_t abs_y = y + j;
+                uint8_t bit_start = abs_y % 8;
+                uint8_t bits_available = 8 - bit_start;
+                uint8_t bits_to_invert = (height - j < bits_available) ? (height - j) : bits_available;
+        
+                uint8_t mask = ((1 << bits_to_invert) - 1) << bit_start;
+        
+                buffer[(x + i) + (abs_y / 8) * pwidth] |= mask;
+        
+                j += bits_to_invert;
+            }
+        }
+    }
+    void clear_pixels(size_t x, size_t y, size_t width, size_t height){
+        if (x >= pwidth || y >= pheight) return;
+        
+        for (size_t i = 0; i < width; i++) {
+            if (x + i >= pwidth) break;
+        
+            size_t j = 0;
+            while (j < height) {
+                size_t abs_y = y + j;
+                uint8_t bit_start = abs_y % 8;
+                uint8_t bits_available = 8 - bit_start;
+                uint8_t bits_to_invert = (height - j < bits_available) ? (height - j) : bits_available;
+        
+                uint8_t mask = ((1 << bits_to_invert) - 1) << bit_start;
+        
+                buffer[(x + i) + (abs_y / 8) * pwidth] &= ~mask;
+        
+                j += bits_to_invert;
+            }
+        }
+    }
+    void invert_pixels(size_t x, size_t y, size_t width, size_t height){
+        if (x >= pwidth || y >= pheight) return;
+        
+        for (size_t i = 0; i < width; i++) {
+            if (x + i >= pwidth) break;
+        
+            size_t j = 0;
+            while (j < height) {
+                size_t abs_y = y + j;
+                uint8_t bit_start = abs_y % 8;
+                uint8_t bits_available = 8 - bit_start;
+                uint8_t bits_to_invert = (height - j < bits_available) ? (height - j) : bits_available;
+        
+                uint8_t mask = ((1 << bits_to_invert) - 1) << bit_start;
+        
+                buffer[(x + i) + (abs_y / 8) * pwidth] ^= mask;
+        
+                j += bits_to_invert;
+            }
+        }
+    }
+
+    void place_bitmap(size_t x, size_t y, const bitmap* bmap){
         if (x >= pwidth || y >= pheight) return;
         for (size_t i = 0; i < bmap->width; i++){
+            if (x + i >= pwidth) break;
             for (size_t j = 0; j < bmap->height; j++){
+                if (y + j >= pheight) break;
                 if ((1 << (j % 8)) & *(bmap->bitmap + i + (j/8) * bmap->width)){
                     set_pixel(x + i, y + j);
                 } else {
@@ -122,15 +176,39 @@ public:
 
 class Display_Box{
     private:
+        Display_Buffer* display;
         Display_Line lines[4];
+        Vec2 p1, p2;
 
     
     public:
-    Display_Box(Display_Buffer* _display, Vec2 p1, Vec2 p2): lines{Display_Line(_display, p1, {p2.x, p1.y}) ,
-                                                                    Display_Line(_display, {p2.x, p1.y}, p2),
-                                                                    Display_Line(_display, p2, {p1.x, p2.y}),
-                                                                    Display_Line(_display, {p1.x, p2.y}, p1)} {}
+    Display_Box(Display_Buffer* _display, Vec2 _p1, Vec2 _p2): lines{Display_Line(_display, _p1, {_p2.x, _p1.y}) ,
+                                                                    Display_Line(_display, {_p2.x, _p1.y}, _p2),
+                                                                    Display_Line(_display, _p2, {_p1.x, _p2.y}),
+                                                                    Display_Line(_display, {_p1.x, _p2.y}, _p1)},
+                                                                    display(_display),
+                                                                    p1(_p1), p2(_p2){}
+    ~Display_Box(){}
+    void draw(void){
+        for (size_t i = 0; i < 4; i++){
+            lines[i].draw();
+        }
+    }
     
+    void fill(){
+        display->set_pixels(p1.x + 1, p1.y + 1, p2.x - p1.x - 1, p2.y - p1.y - 1);
+    }
+
+    void clear(){
+        display->clear_pixels(p1.x + 1, p1.y + 1, p2.x - p1.x - 1, p2.y - p1.y - 1);
+    }
+    void clear_lines(void){
+        // Todo
+        }
+    void invert(void){
+        display->invert_pixels(p1.x + 1, p1.y + 1, p2.x - p1.x - 1, p2.y - p1.y - 1);
+    }
+
 };
 
 class Display_Circle{
@@ -193,8 +271,14 @@ public:
     void draw(void){
         for (size_t i = 0; i < strlen(text); i++){
             bitmap bmap = get_ascii(text[i]);
-            display->set_pixels(offsetx + i * bmap.width, offsety, &bmap);
+            display->place_bitmap(offsetx + i * bmap.width, offsety, &bmap);
         }
+    }
+
+    void Highlight(void){
+
+        size_t text_length = strlen(text);
+        display->invert_pixels(offsetx, offsety, text_length * ascii_font_width, ascii_font_hight);
     }
 
     char* get_text(void){
@@ -308,9 +392,8 @@ Display_Text* static_time;
 static void alarm_callback(void) {
     datetime_t t = {0};
     rtc_get_datetime(&t);
-    char buffer[6];
+    char buffer[10];
     snprintf(buffer, sizeof(buffer), "%02d:%02d", t.hour, t.min);
-    fired = true;
     *static_time << buffer;
     static_oled->update();
 }
@@ -334,15 +417,22 @@ int main(){
     Oled_Display oled(64, 128);
     static_oled = &oled;
 
+    
+    Display_Box Header = oled.create_box(0, 0, 127, 13);
     Display_Text Text1 = oled.create_text(1, 1);
-    Display_Text Text2 = oled.create_text(5, 16);
-    Display_Box Header = oled.create_box(0, 0, 127, 14);
 
     Text1 << "Pico OLED";
-    Text2 << "Dieser_Text_ist@@@";
-    Display_Box Zeit_Fenster = oled.create_box(86, 0, 127, 14);
+    Display_Box Zeit_Fenster = oled.create_box(86, 0, 127, 13);
     Display_Text zeit = oled.create_text(87, 1);
-    Display_Circle circle2 = oled.create_circle(64, 25, 7);
+    Display_Box Würfel = oled.create_box(20, 20, 60, 60);
+    Display_Box Würfel2 = oled.create_box(18,18, 62, 62);
+    Display_Circle circle1 = oled.create_circle(30, 30, 5);
+    Display_Circle circle2 = oled.create_circle(50, 30, 5);
+    Display_Circle circle3 = oled.create_circle(50, 50, 5);
+    Display_Circle circle4 = oled.create_circle(30, 50, 5);
+
+
+
 
     static_time = &zeit;
     oled.update();
@@ -353,14 +443,19 @@ int main(){
     datetime_t t = {
         .year  = 2025,
         .month = 04,
-        .day   = 20,
-        .dotw  = 6, // 0 is Sunday, so 3 is Wednesday
-        .hour  = 0,
-        .min   = 19,
+        .day   = 21,
+        .dotw  = 1, 
+        .hour  = 22,
+        .min   = 49,
         .sec   = 00
     };
     
-    rtc_set_datetime(&t);
+    if (rtc_set_datetime(&t)) zeit << "!!:!!";
+    else zeit << "??:??";
+
+    
+    oled.update();
+
     datetime_t alarm_t = {
         .year  = -1,
         .month = -1,
@@ -370,16 +465,19 @@ int main(){
         .min   = -1,
         .sec   = 00
     }; 
-    alarm_callback();
     rtc_set_alarm(&alarm_t, alarm_callback);
     
     
-
+    
     uint i = 0;
     while(true){
         sleep_ms(1000);
+        Würfel.invert();
+        oled.update();
         gpio_put(PICO_DEFAULT_LED_PIN, 0);
         sleep_ms(1000);
+        Text1.Highlight();
+        oled.update();
         gpio_put(PICO_DEFAULT_LED_PIN, 1);
     }
     return 0;
