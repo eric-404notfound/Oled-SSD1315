@@ -15,17 +15,21 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
 
 pico_sdk_init()
-file(GLOB_RECURSE SOURCES "source/*.cpp")
+
+file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS
+    ${CMAKE_CURRENT_SOURCE_DIR}/source/*.cpp
+)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/external)
 
 add_executable(main
-        source/main.cpp
         ${SOURCES}
 )
 pico_enable_stdio_usb(main ON)
 pico_enable_stdio_uart(main OFF)
 
-
+target_include_directories(main PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/source
+)
 # pull in common dependencies
 target_link_libraries(main
 

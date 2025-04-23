@@ -1,21 +1,4 @@
-
-
-
-#include "ascii.h"
-struct bitmap{
-    uint8_t width;
-    uint8_t height;
-    uint8_t* bitmap;
-
-    ~bitmap(void){
-        delete[] bitmap;
-    }
-};
-
-#include "latin1.h"
-#include "special_symbols.h"
-
-
+#include "font.h"
 
 bitmap get_ascii(char symbol){
     uint8_t width = ascii_font_width;
@@ -28,3 +11,4 @@ bitmap get_ascii(char symbol){
         //memcpy(bmap, bmap2, 32);
     return {width, height, bmap};
 }
+

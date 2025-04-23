@@ -1,3 +1,7 @@
+#pragma once
+#include "font.h"
+bitmap get_ascii(char symbol);
+
 const unsigned char ascii_font_hight = 12;
 const unsigned char ascii_font_width = 8;
 const unsigned char ascii_font_char_count = 95;

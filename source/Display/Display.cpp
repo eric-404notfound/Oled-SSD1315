@@ -181,11 +181,11 @@ namespace Display
     Box Oled_SSD1315::create_box(size_t x1, size_t y1, size_t x2, size_t y2) {
         Vec2 p1 = {x1, y1};
         Vec2 p2 = {x2, y2};
-        return Display_Box(&display, p1, p2);
+        return Box(&display, p1, p2);
     }
     Circle Oled_SSD1315::create_circle(size_t x, size_t y, size_t r) {
         Vec2 p1 = {x, y};
-        return Display_Circle(&display, p1, r);
+        return Circle(&display, p1, r);
     }
 
     Oled_SSD1315::Oled_SSD1315(size_t hight, size_t width): hight(hight/8), width(width), display(width, hight) {

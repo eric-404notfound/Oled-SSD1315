@@ -1,3 +1,4 @@
+#pragma once
 #include "Display.h"
 
 
@@ -11,7 +12,7 @@ namespace Display
         public:
             Line(Buffer* _display, Vec2 _p1, Vec2 _p2);
         
-            ~Line(){}
+            ~Line();
         
             void draw(void);
             
@@ -36,7 +37,7 @@ namespace Display
 
         void Highlight(void);
 
-        char* get_text(void){return text;}:
+        char* get_text(void);
 
 
 
@@ -50,7 +51,7 @@ namespace Display
         public:
             Circle(Buffer* _display, Vec2 _center, size_t _radius);
         
-            ~Circle(){};
+            ~Circle();
         
             void draw(void);
         };
