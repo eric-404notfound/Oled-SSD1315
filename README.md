@@ -1,3 +1,3 @@
-# Oled-SSD1315-GER
+# Oled-SSD1315
 
 zurzeit in der Testphase
