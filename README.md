@@ -1,6 +1,6 @@
 # OLED-SSD1315
 
-Eine C++-Implementierung für das OLED-Display mit SSD1315-Controller auf dem Raspberry Pi Pico (RP2040).
+Eine C++-Implementierung für das OLED-Display mit SSD1315-Controller auf dem Raspberry Pi Pico (RP2040/RP2350).
 
 ## Features
 
