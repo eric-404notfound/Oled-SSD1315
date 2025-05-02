@@ -16,4 +16,5 @@ Eine C++-Implementierung für das OLED-Display mit SSD1315-Controller auf dem Ra
 - Pico SDK  
 - I2C-OLED mit SSD1315 (128x64)
 
-##Work in Progress
+##TODO
+Dokumentation
