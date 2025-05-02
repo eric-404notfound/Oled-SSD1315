@@ -15,3 +15,5 @@ Eine C++-Implementierung für das OLED-Display mit SSD1315-Controller auf dem Ra
 - Raspberry Pi Pico oder Pico W  
 - Pico SDK  
 - I2C-OLED mit SSD1315 (128x64)
+
+##Work in Progress
